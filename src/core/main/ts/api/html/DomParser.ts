@@ -442,6 +442,7 @@ export default function (settings?, schema = Schema()) {
     parser = SaxParser({
       validate,
       allow_script_urls: settings.allow_script_urls,
+      allow_svg_data_urls: settings.allow_svg_data_urls,
       allow_conditional_comments: settings.allow_conditional_comments,
 
       // Exclude P and LI from DOM parsing since it's treated better by the DOM parser

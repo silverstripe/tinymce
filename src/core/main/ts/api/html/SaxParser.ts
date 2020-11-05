@@ -5,6 +5,7 @@
  * For commercial licenses see https://www.tiny.cloud/
  */
 
+import { Arr } from '@ephox/katamari';
 import Tools from '../util/Tools';
 import Entities from './Entities';
 import Schema from './Schema';
@@ -64,11 +65,19 @@ const trimComments = function (text: string) {
   return sanitizedText;
 };
 
-const isInvalidUri = (settings, uri: string) => {
+const safeSvgDataUrlElements = [ 'img', 'video' ];
+
+const blockSvgDataUris = (allowSvgDataUrls: boolean | undefined, tagName: string) => {
+  // Only allow SVGs by default on images/videos since the browser won't execute scripts on those elements
+  const allowed = (allowSvgDataUrls === null || allowSvgDataUrls === undefined) ? Arr.contains(safeSvgDataUrlElements, tagName) : allowSvgDataUrls;
+  return !allowed;
+};
+
+const isInvalidUri = (settings, uri: string, tagName: string) => {
   if (settings.allow_html_data_urls) {
     return false;
   } else if (/^data:image\//i.test(uri)) {
-    return settings.allow_svg_data_urls === false && /^data:image\/svg\+xml/i.test(uri);
+    return blockSvgDataUris(settings.allow_svg_data_urls, tagName) && /^data:image\/svg\+xml/i.test(uri);
   } else {
     return /^data:/i.test(uri);
   }
@@ -199,7 +208,7 @@ export function SaxParser(settings, schema = Schema()) {
       }
     };
 
-    const parseAttribute = function (match, name, value, val2, val3) {
+    const parseAttribute = function (tagName, name, value, val2, val3) {
       let attrRule, i;
       const trimRegExp = /[\s\u0000-\u001F]+/g;
 
@@ -253,7 +262,7 @@ export function SaxParser(settings, schema = Schema()) {
           return;
         }
 
-        if (isInvalidUri(settings, uri)) {
+        if (isInvalidUri(settings, uri, tagName)) {
           return;
         }
       }
@@ -365,7 +374,10 @@ export function SaxParser(settings, schema = Schema()) {
             attrList = [];
             attrList.map = {};
 
-            attribsValue.replace(attrRegExp, parseAttribute);
+            attribsValue.replace(attrRegExp, (match, name, val, val2, val3) => {
+              parseAttribute(value, name, val, val2, val3);
+              return '';
+            });
           } else {
             attrList = [];
             attrList.map = {};
