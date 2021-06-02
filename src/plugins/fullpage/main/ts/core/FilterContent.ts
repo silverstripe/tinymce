@@ -65,7 +65,7 @@ const handleSetContent = function (editor: Editor, headState, footState, evt) {
   }
 
   // Parse header and update iframe
-  headerFragment = Parser.parseHeader(headState.get());
+  headerFragment = Parser.parseHeader(editor, headState.get());
   each(headerFragment.getAll('style'), function (node) {
     if (node.firstChild) {
       styles += node.firstChild.value;
