@@ -56,6 +56,22 @@ export default function (settings?, schema = Schema()) {
     textBlockElements = schema.getTextBlockElements();
     specialElements = schema.getSpecialElements();
 
+    const removeOrUnwrapInvalidNode = (node: Node, originalNodeParent: Node = node.parent): void => {
+      if (specialElements[node.name]) {
+        node.empty().remove();
+      } else {
+        // are the children of `node` valid children of the top level parent?
+        // if not, remove or unwrap them too
+        const children = node.children();
+        for (const childNode of children) {
+          if (!schema.isValidChild(originalNodeParent.name, childNode.name)) {
+            removeOrUnwrapInvalidNode(childNode, originalNodeParent);
+          }
+        }
+        node.unwrap();
+      }
+    };
+
     for (ni = 0; ni < nodes.length; ni++) {
       node = nodes[ni];
 
@@ -95,41 +111,46 @@ export default function (settings?, schema = Schema()) {
 
       // Found a suitable parent
       if (parent && parents.length > 1) {
-        // Reverse the array since it makes looping easier
-        parents.reverse();
+        // If the node is a valid child of the parent, then try to move it. Otherwise unwrap it
+        if (schema.isValidChild(parent.name, node.name)) {
+          // Reverse the array since it makes looping easier
+          parents.reverse();
 
-        // Clone the related parent and insert that after the moved node
-        newParent = currentNode = filterNode(parents[0].clone());
+          // Clone the related parent and insert that after the moved node
+          newParent = currentNode = filterNode(parents[0].clone());
 
-        // Start cloning and moving children on the left side of the target node
-        for (i = 0; i < parents.length - 1; i++) {
-          if (schema.isValidChild(currentNode.name, parents[i].name)) {
-            tempNode = filterNode(parents[i].clone());
-            currentNode.append(tempNode);
+          // Start cloning and moving children on the left side of the target node
+          for (i = 0; i < parents.length - 1; i++) {
+            if (schema.isValidChild(currentNode.name, parents[i].name)) {
+              tempNode = filterNode(parents[i].clone());
+              currentNode.append(tempNode);
+            } else {
+              tempNode = currentNode;
+            }
+
+            for (childNode = parents[i].firstChild; childNode && childNode !== parents[i + 1];) {
+              nextNode = childNode.next;
+              tempNode.append(childNode);
+              childNode = nextNode;
+            }
+
+            currentNode = tempNode;
+          }
+
+          if (!isEmpty(schema, nonEmptyElements, whitespaceElements, newParent)) {
+            parent.insert(newParent, parents[0], true);
+            parent.insert(node, newParent);
           } else {
-            tempNode = currentNode;
+            parent.insert(node, parents[0], true);
           }
 
-          for (childNode = parents[i].firstChild; childNode && childNode !== parents[i + 1];) {
-            nextNode = childNode.next;
-            tempNode.append(childNode);
-            childNode = nextNode;
+          // Check if the element is empty by looking through it's contents and special treatment for <p><br /></p>
+          parent = parents[0];
+          if (isEmpty(schema, nonEmptyElements, whitespaceElements, parent) || hasOnlyChild(parent, 'br')) {
+            parent.empty().remove();
           }
-
-          currentNode = tempNode;
-        }
-
-        if (!isEmpty(schema, nonEmptyElements, whitespaceElements, newParent)) {
-          parent.insert(newParent, parents[0], true);
-          parent.insert(node, newParent);
         } else {
-          parent.insert(node, parents[0], true);
-        }
-
-        // Check if the element is empty by looking through it's contents and special treatment for <p><br /></p>
-        parent = parents[0];
-        if (isEmpty(schema, nonEmptyElements, whitespaceElements, parent) || hasOnlyChild(parent, 'br')) {
-          parent.empty().remove();
+          removeOrUnwrapInvalidNode(node);
         }
       } else if (node.parent) {
         // If it's an LI try to find a UL/OL for it or wrap it
@@ -154,12 +175,8 @@ export default function (settings?, schema = Schema()) {
         if (schema.isValidChild(node.parent.name, 'div') && schema.isValidChild('div', node.name)) {
           node.wrap(filterNode(new Node('div', 1)));
         } else {
-          // We failed wrapping it, then remove or unwrap it
-          if (specialElements[node.name]) {
-            node.empty().remove();
-          } else {
-            node.unwrap();
-          }
+          // We failed wrapping it, remove or unwrap it
+          removeOrUnwrapInvalidNode(node);
         }
       }
     }
