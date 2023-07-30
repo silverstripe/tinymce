@@ -11,16 +11,16 @@ import Serializer from 'tinymce/core/api/html/Serializer';
 import Tools from 'tinymce/core/api/util/Tools';
 import Settings from '../api/Settings';
 
-const parseHeader = function (head) {
+const parseHeader = function (editor, head) {
   // Parse the contents with a DOM parser
   return DomParser({
     validate: false,
     root_name: '#document'
-  }).parse(head);
+  }, editor.schema).parse(head);
 };
 
 const htmlToData = function (editor, head) {
-  const headerFragment = parseHeader(head);
+  const headerFragment = parseHeader(editor, head);
   const data: any = {};
   let elm, matches;
 
@@ -117,7 +117,7 @@ const dataToHtml = function (editor, data, head) {
     }
   }
 
-  headerFragment = parseHeader(head);
+  headerFragment = parseHeader(editor, head);
   headElement = headerFragment.getAll('head')[0];
   if (!headElement) {
     elm = headerFragment.getAll('html')[0];

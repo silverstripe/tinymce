@@ -664,7 +664,8 @@ UnitTest.asynctest('browser.tinymce.core.html.SaxParserTest', function () {
     );
     LegacyUnit.equal(
       writer.getContent(),
-      '<a href="javascript:alert(1)">1</a><a href=" 2 ">2</a>' +
+      '<a href="javascript:alert(1)">1</a>' +
+      '<a href=" 2 ">2</a>' +
       '<a href="data:text/html;base64,PHN2Zy9vbmxvYWQ9YWxlcnQoMik+">3</a>'
     );
   });
@@ -700,11 +701,13 @@ UnitTest.asynctest('browser.tinymce.core.html.SaxParserTest', function () {
     parser = SaxParser(counter, schema);
     writer.reset();
     parser.parse(
-      '<a href="data:image/svg+xml;base64,x">1</a>'
+      '<a href="data:image/svg+xml;base64,x">1</a>' +
+      '<img src="data:image/svg+xml;base64,x">'
     );
     LegacyUnit.equal(
       writer.getContent(),
-      '<a>1</a>'
+      '<a>1</a>' +
+      '<img />'
     );
   });
 
@@ -737,10 +740,96 @@ UnitTest.asynctest('browser.tinymce.core.html.SaxParserTest', function () {
 
     LegacyUnit.equal(
       writer.getContent(),
-      '<a>1</a><a>2</a><a>3</a><a>4</a><a>5</a><a>6</a><a>7</a><a>8</a><a>9</a>' +
-      '<object>10</object><button>11</button><table><tr></tr><tr>12</tr></table><a>13</a><a>14</a>' +
+      '<a>1</a>' +
+      '<a>2</a>' +
+      '<a>3</a>' +
+      '<a>4</a>' +
+      '<a>5</a>' +
+      '<a>6</a>' +
+      '<a>7</a>' +
+      '<a>8</a>' +
+      '<a>9</a>' +
+      '<object>10</object>' +
+      '<button>11</button>' +
+      '<table><tr></tr><tr>12</tr></table>' +
+      '<a>13</a>' +
+      '<a>14</a>' +
       '<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />' +
       '<a href="%E3%82%AA%E3%83%BC%E3%83">Invalid url</a>'
+    );
+  });
+
+  suite.test('Parse svg urls (default)', function () {
+    let counter, parser;
+
+    counter = createCounter(writer);
+    counter.validate = false;
+    parser = SaxParser(counter, schema);
+    writer.reset();
+    parser.parse(
+      '<iframe src="data:image/svg+xml;base64,x"></iframe>' +
+      '<a href="data:image/svg+xml;base64,x">1</a>' +
+      '<object data="data:image/svg+xml;base64,x"></object>' +
+      '<img src="data:image/svg+xml;base64,x">' +
+      '<video poster="data:image/svg+xml;base64,x"></video>'
+    );
+    LegacyUnit.equal(
+      writer.getContent(),
+      '<iframe></iframe>' +
+      '<a>1</a>' +
+      '<object></object>' +
+      '<img src="data:image/svg+xml;base64,x" />' +
+      '<video poster="data:image/svg+xml;base64,x"></video>'
+    );
+  });
+
+  suite.test('Parse svg urls (allowed)', function () {
+    let counter, parser;
+
+    counter = createCounter(writer);
+    counter.validate = false;
+    counter.allow_svg_data_urls = true;
+    parser = SaxParser(counter, schema);
+    writer.reset();
+    parser.parse(
+      '<iframe src="data:image/svg+xml;base64,x"></iframe>' +
+      '<a href="data:image/svg+xml;base64,x">1</a>' +
+      '<object data="data:image/svg+xml;base64,x"></object>' +
+      '<img src="data:image/svg+xml;base64,x">' +
+      '<video poster="data:image/svg+xml;base64,x"></video>'
+    );
+    LegacyUnit.equal(
+      writer.getContent(),
+      '<iframe src="data:image/svg+xml;base64,x"></iframe>' +
+      '<a href="data:image/svg+xml;base64,x">1</a>' +
+      '<object data="data:image/svg+xml;base64,x"></object>' +
+      '<img src="data:image/svg+xml;base64,x" />' +
+      '<video poster="data:image/svg+xml;base64,x"></video>'
+    );
+  });
+
+  suite.test('Parse svg urls (denied)', function () {
+    let counter, parser;
+
+    counter = createCounter(writer);
+    counter.validate = false;
+    counter.allow_svg_data_urls = false;
+    parser = SaxParser(counter, schema);
+    writer.reset();
+    parser.parse(
+      '<iframe src="data:image/svg+xml;base64,x"></iframe>' +
+      '<a href="data:image/svg+xml;base64,x">1</a>' +
+      '<object data="data:image/svg+xml;base64,x"></object>' +
+      '<img src="data:image/svg+xml;base64,x">' +
+      '<video poster="data:image/svg+xml;base64,x"></video>'
+    );
+    LegacyUnit.equal(
+      writer.getContent(),
+      '<iframe></iframe>' +
+      '<a>1</a>' +
+      '<object></object>' +
+      '<img />' +
+      '<video></video>'
     );
   });
 
